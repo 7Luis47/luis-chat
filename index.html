@@ -32,6 +32,15 @@ body{font-family:system-ui,sans-serif;background:#f4f4f4;min-height:100vh;displa
 .chat-footer{text-align:center;padding:10px;font-size:11px;color:#aaa;border-top:1px solid #f0f0f0}
 .chat-footer a{color:#CC0000;text-decoration:none}
 .success-banner{background:#f0fdf4;border:1px solid #86efac;border-radius:10px;padding:12px 16px;font-size:13px;color:#166534;text-align:center;margin:0 20px 12px}
+/* Language selector */
+.lang-screen{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;text-align:center;gap:24px}
+.lang-title{font-family:Georgia,serif;font-size:22px;font-weight:900;color:#111;line-height:1.4}
+.lang-title span{color:#CC0000}
+.lang-subtitle{font-size:14px;color:#666;line-height:1.6}
+.lang-buttons{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
+.lang-btn{background:#fff;border:2px solid #CC0000;color:#CC0000;font-family:inherit;font-size:15px;font-weight:700;padding:14px 28px;border-radius:50px;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:8px}
+.lang-btn:hover{background:#CC0000;color:#fff}
+.lang-badge{font-size:22px}
 </style>
 </head>
 <body>
@@ -45,9 +54,24 @@ body{font-family:system-ui,sans-serif;background:#f4f4f4;min-height:100vh;displa
     </div>
   </div>
 
-  <div class="chat-messages" id="messages"></div>
+  <!-- Language Selection Screen -->
+  <div class="lang-screen" id="langScreen">
+    <div class="lang-title">Welcome to <span>Red One Realty</span><br/>¡Bienvenido a Red One Realty!</div>
+    <div class="lang-subtitle">Please choose your language<br/>Por favor elige tu idioma</div>
+    <div class="lang-buttons">
+      <button class="lang-btn" onclick="selectLanguage('english')">
+        <span class="lang-badge">🇺🇸</span> English
+      </button>
+      <button class="lang-btn" onclick="selectLanguage('spanish')">
+        <span class="lang-badge">🇲🇽</span> Español
+      </button>
+    </div>
+  </div>
 
-  <div class="chat-input-area">
+  <!-- Chat Screen (hidden until language selected) -->
+  <div class="chat-messages" id="messages" style="display:none"></div>
+
+  <div class="chat-input-area" id="inputArea" style="display:none">
     <input class="chat-input" id="userInput" type="text" placeholder="Type your message..." onkeypress="handleKey(event)"/>
     <button class="send-btn" id="sendBtn" onclick="sendMessage()">➤</button>
   </div>
@@ -62,12 +86,29 @@ const BACKEND_URL = "https://script.google.com/macros/s/AKfycbyXQE8SWAXiOtthWRhg
 
 let history = [];
 let leadCaptured = false;
+let selectedLanguage = "english";
 
-window.onload = () => {
+function selectLanguage(lang) {
+  selectedLanguage = lang;
+
+  // Hide language screen, show chat
+  document.getElementById("langScreen").style.display = "none";
+  document.getElementById("messages").style.display = "flex";
+  document.getElementById("inputArea").style.display = "flex";
+
+  // Update placeholder based on language
+  const input = document.getElementById("userInput");
+  input.placeholder = lang === "spanish" ? "Escribe tu mensaje..." : "Type your message...";
+
+  // Send greeting based on language
   setTimeout(() => {
-    addMessage("bot", "Hi there! 👋 I'm Luis Sanabria's assistant at Red One Realty in Central Ohio. I'm here to help you with all your real estate needs! Are you looking to buy or sell a home?");
-  }, 500);
-};
+    if (lang === "spanish") {
+      addMessage("bot", "¡Hola! 👋 Soy el asistente de Luis Sanabria en Red One Realty en Ohio Central. ¡Estoy aquí para ayudarte con todas tus necesidades de bienes raíces! ¿Estás buscando comprar o vender una casa?");
+    } else {
+      addMessage("bot", "Hi there! 👋 I'm Luis Sanabria's assistant at Red One Realty in Central Ohio. I'm here to help you with all your real estate needs! Are you looking to buy or sell a home?");
+    }
+  }, 400);
+}
 
 function handleKey(e) {
   if (e.key === "Enter") sendMessage();
@@ -90,14 +131,21 @@ async function sendMessage() {
     const res = await fetch(BACKEND_URL, {
       method: "POST",
       headers: { "Content-Type": "text/plain" },
-      body: JSON.stringify({ message: text, history: history })
+      body: JSON.stringify({
+        message: text,
+        history: history,
+        language: selectedLanguage
+      })
     });
 
     const data = await res.json();
     hideTyping();
 
     if (data.error) {
-      addMessage("bot", "Sorry, something went wrong. Please try again!");
+      const errMsg = selectedLanguage === "spanish"
+        ? "Lo siento, algo salió mal. ¡Por favor intenta de nuevo!"
+        : "Sorry, something went wrong. Please try again!";
+      addMessage("bot", errMsg);
     } else {
       addMessage("bot", data.message);
       history.push({ role: "assistant", content: data.message });
@@ -107,12 +155,17 @@ async function sendMessage() {
         setTimeout(() => showSuccessBanner(), 500);
         input.disabled = true;
         sendBtn.disabled = true;
-        input.placeholder = "Thanks! Luis will be in touch soon 🎉";
+        input.placeholder = selectedLanguage === "spanish"
+          ? "¡Gracias! Luis se pondrá en contacto pronto 🎉"
+          : "Thanks! Luis will be in touch soon 🎉";
       }
     }
   } catch(e) {
     hideTyping();
-    addMessage("bot", "Sorry, I'm having trouble connecting. Please try again in a moment!");
+    const errMsg = selectedLanguage === "spanish"
+      ? "Lo siento, estoy teniendo problemas para conectarme. ¡Por favor intenta de nuevo!"
+      : "Sorry, I'm having trouble connecting. Please try again in a moment!";
+    addMessage("bot", errMsg);
   }
 
   sendBtn.disabled = false;
@@ -145,7 +198,9 @@ function showSuccessBanner() {
   const inputArea = document.querySelector(".chat-input-area");
   const banner = document.createElement("div");
   banner.className = "success-banner";
-  banner.innerHTML = "✅ <strong>You're all set!</strong> Luis will reach out to you shortly.";
+  banner.innerHTML = selectedLanguage === "spanish"
+    ? "✅ <strong>¡Todo listo!</strong> Luis se pondrá en contacto contigo pronto."
+    : "✅ <strong>You're all set!</strong> Luis will reach out to you shortly.";
   container.insertBefore(banner, inputArea);
 }
 </script>
